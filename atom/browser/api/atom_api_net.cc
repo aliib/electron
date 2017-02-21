@@ -4,6 +4,7 @@
 
 #include "atom/browser/api/atom_api_net.h"
 #include "atom/browser/api/atom_api_url_request.h"
+#include "atom/browser/api/atom_api_websocket.h"
 #include "atom/common/node_includes.h"
 #include "native_mate/dictionary.h"
 
@@ -27,11 +28,16 @@ void Net::BuildPrototype(v8::Isolate* isolate,
                          v8::Local<v8::FunctionTemplate> prototype) {
   prototype->SetClassName(mate::StringToV8(isolate, "Net"));
   mate::ObjectTemplateBuilder(isolate, prototype->PrototypeTemplate())
-      .SetProperty("URLRequest", &Net::URLRequest);
+      .SetProperty("URLRequest", &Net::URLRequest)
+      .SetProperty("WebSocket", &Net::WebSocket);
 }
 
 v8::Local<v8::Value> Net::URLRequest(v8::Isolate* isolate) {
   return URLRequest::GetConstructor(isolate)->GetFunction();
+}
+
+v8::Local<v8::Value> Net::WebSocket(v8::Isolate* isolate) {
+  return WebSocket::GetConstructor(isolate)->GetFunction();
 }
 
 }  // namespace api
@@ -42,6 +48,7 @@ namespace {
 
 using atom::api::Net;
 using atom::api::URLRequest;
+using atom::api::WebSocket;
 
 void Initialize(v8::Local<v8::Object> exports,
                 v8::Local<v8::Value> unused,
@@ -50,6 +57,7 @@ void Initialize(v8::Local<v8::Object> exports,
   v8::Isolate* isolate = context->GetIsolate();
 
   URLRequest::SetConstructor(isolate, base::Bind(URLRequest::New));
+  WebSocket::SetConstructor(isolate, base::Bind(WebSocket::New));
 
   mate::Dictionary dict(isolate, exports);
   dict.Set("net", Net::Create(isolate));

@@ -19,6 +19,7 @@ class Net : public mate::EventEmitter<Net> {
                              v8::Local<v8::FunctionTemplate> prototype);
 
   v8::Local<v8::Value> URLRequest(v8::Isolate* isolate);
+  v8::Local<v8::Value> WebSocket(v8::Isolate* isolate);
 
  protected:
   explicit Net(v8::Isolate* isolate);
