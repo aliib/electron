@@ -423,6 +423,8 @@
       'atom/common/native_mate_converters/accelerator_converter.h',
       'atom/common/native_mate_converters/blink_converter.cc',
       'atom/common/native_mate_converters/blink_converter.h',
+      'atom/common/native_mate_converters/buffer_converter.cc',
+      'atom/common/native_mate_converters/buffer_converter.h',
       'atom/common/native_mate_converters/callback.cc',
       'atom/common/native_mate_converters/callback.h',
       'atom/common/native_mate_converters/content_converter.cc',

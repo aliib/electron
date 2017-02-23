@@ -11,10 +11,11 @@
 #include <string>
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
+#include "net/url_request/url_request_context_getter.h"
+#include "net/websockets/websocket_channel.h"
 
 namespace net {
 class WebSocketEventInterface;
-class WebSocketChannel;
 class URLRequestContext;
 struct WebSocketHandshakeResponseInfo;
 }
@@ -25,25 +26,31 @@ class Origin;
 }
 
 namespace atom {
-  
-class AtomWebSocketChannel : public base::RefCountedThreadSafe<AtomWebSocketChannel>{
-public:
-  AtomWebSocketChannel(net::URLRequestContext* url_request_context);
 
-  void SendAddChannelRequest(
-    const GURL& socket_url,
-    const std::vector<std::string>& requested_protocols,
-    const url::Origin& origin,
-    const GURL& first_party_for_cookies,
-    const std::string& additional_headers);
+class AtomBrowserContext;
+
+class AtomWebSocketChannel : 
+  public base::RefCountedThreadSafe<AtomWebSocketChannel> {
+
+public:
+  static scoped_refptr<AtomWebSocketChannel> Create(
+    AtomBrowserContext* browser_context,
+    GURL&& url,
+    std::vector<std::string>&& protocols);
+
+  void Send(scoped_refptr<net::IOBufferWithSize> buffer, bool is_last);
 
 private:
-  void DoSendAddChannelRequest(
-    const GURL& socket_url,
-    const std::vector<std::string>& requested_protocols,
-    const url::Origin& origin,
-    const GURL& first_party_for_cookies,
-    const std::string& additional_headers);
+  friend class base::RefCountedThreadSafe<AtomWebSocketChannel>;
+  AtomWebSocketChannel();
+  ~AtomWebSocketChannel();
+
+  void DoInitialize(scoped_refptr<net::URLRequestContextGetter>,
+    const GURL& url,
+    const std::vector<std::string>& protocols);
+  void DoTerminate();
+
+  void DoSend(scoped_refptr<net::IOBufferWithSize> buffer, bool is_last);
 
   void OnFinishOpeningHandshake(
     std::unique_ptr<net::WebSocketHandshakeResponseInfo> response);

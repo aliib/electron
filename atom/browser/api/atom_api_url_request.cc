@@ -7,51 +7,11 @@
 #include "atom/browser/api/atom_api_session.h"
 #include "atom/browser/net/atom_url_request.h"
 #include "atom/common/api/event_emitter_caller.h"
+#include "atom/common/native_mate_converters/buffer_converter.h"
 #include "atom/common/native_mate_converters/callback.h"
 #include "atom/common/native_mate_converters/net_converter.h"
 #include "atom/common/native_mate_converters/string16_converter.h"
-#include "atom/common/node_includes.h"
 #include "native_mate/dictionary.h"
-
-namespace mate {
-
-template <>
-struct Converter<scoped_refptr<const net::IOBufferWithSize>> {
-  static v8::Local<v8::Value> ToV8(
-      v8::Isolate* isolate,
-      scoped_refptr<const net::IOBufferWithSize> buffer) {
-    return node::Buffer::Copy(isolate, buffer->data(), buffer->size())
-        .ToLocalChecked();
-  }
-
-  static bool FromV8(v8::Isolate* isolate,
-                     v8::Local<v8::Value> val,
-                     scoped_refptr<const net::IOBufferWithSize>* out) {
-    auto size = node::Buffer::Length(val);
-
-    if (size == 0) {
-      // Support conversion from empty buffer. A use case is
-      // a GET request without body.
-      // Since zero-sized IOBuffer(s) are not supported, we set the
-      // out pointer to null.
-      *out = nullptr;
-      return true;
-    }
-    auto data = node::Buffer::Data(val);
-    if (!data) {
-      // This is an error as size is positive but data is null.
-      return false;
-    }
-
-    *out = new net::IOBufferWithSize(size);
-    // We do a deep copy. We could have used Buffer's internal memory
-    // but that is much more complicated to be properly handled.
-    memcpy((*out)->data(), data, size);
-    return true;
-  }
-};
-
-}  // namespace mate
 
 namespace atom {
 namespace api {

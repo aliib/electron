@@ -8,9 +8,13 @@
 #include <base/macros.h>
 #include "atom/browser/api/event_emitter.h"
 
+namespace net {
+class IOBufferWithSize;
+} // namespace net
+
 namespace atom {
 
-class AtomURLRequest;
+class AtomWebSocketChannel;
 
 namespace api {
 
@@ -23,11 +27,16 @@ public:
 
 protected:
   explicit WebSocket(v8::Isolate* isolate, v8::Local<v8::Object> wrapper);
-  ~WebSocket() override;
+  virtual ~WebSocket() override;
 
 private:
-  void Send();
+  void Send(scoped_refptr<net::IOBufferWithSize> buffer, bool is_last);
   void Close();
+  void Pin();
+  void Unpin();
+
+  scoped_refptr<AtomWebSocketChannel> atom_websocket_channel_;
+  v8::Global<v8::Object> wrapper_;
 
   DISALLOW_COPY_AND_ASSIGN(WebSocket);
 };
