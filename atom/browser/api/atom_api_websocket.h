@@ -7,9 +7,11 @@
 
 #include <base/macros.h>
 #include "atom/browser/api/event_emitter.h"
+#include "net/websockets/websocket_frame.h"
 
 namespace net {
 class IOBufferWithSize;
+struct WebSocketHandshakeResponseInfo;
 } // namespace net
 
 namespace atom {
@@ -25,6 +27,12 @@ public:
   static void BuildPrototype(v8::Isolate* isolate,
     v8::Local<v8::FunctionTemplate> prototype);
 
+  void OnFinishOpeningHandshake(
+    std::unique_ptr<net::WebSocketHandshakeResponseInfo> response);
+  void OnDataFrame(bool fin,
+    net::WebSocketFrameHeader::OpCodeEnum type,
+    scoped_refptr<net::IOBuffer> buffer,
+    size_t buffer_size);
 protected:
   explicit WebSocket(v8::Isolate* isolate, v8::Local<v8::Object> wrapper);
   virtual ~WebSocket() override;

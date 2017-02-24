@@ -13,6 +13,7 @@
 #include "base/memory/ref_counted.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "net/websockets/websocket_channel.h"
+#include "net/websockets/websocket_frame.h"
 
 namespace net {
 class WebSocketEventInterface;
@@ -27,6 +28,10 @@ class Origin;
 
 namespace atom {
 
+namespace api {
+class WebSocket;
+} // namespace api
+
 class AtomBrowserContext;
 
 class AtomWebSocketChannel : 
@@ -36,13 +41,14 @@ public:
   static scoped_refptr<AtomWebSocketChannel> Create(
     AtomBrowserContext* browser_context,
     GURL&& url,
-    std::vector<std::string>&& protocols);
+    std::vector<std::string>&& protocols,
+    api::WebSocket* delegate);
 
   void Send(scoped_refptr<net::IOBufferWithSize> buffer, bool is_last);
 
 private:
   friend class base::RefCountedThreadSafe<AtomWebSocketChannel>;
-  AtomWebSocketChannel();
+  AtomWebSocketChannel(api::WebSocket* delegate);
   ~AtomWebSocketChannel();
 
   void DoInitialize(scoped_refptr<net::URLRequestContextGetter>,
@@ -54,10 +60,12 @@ private:
 
   void OnFinishOpeningHandshake(
     std::unique_ptr<net::WebSocketHandshakeResponseInfo> response);
-
-  void InformFinishOpeningHanshake(
-    std::unique_ptr<net::WebSocketHandshakeResponseInfo> response);
+  void OnDataFrame(bool fin,
+    net::WebSocketFrameHeader::OpCodeEnum type,
+    scoped_refptr<net::IOBuffer> buffer,
+    size_t buffer_size);
 private:
+  api::WebSocket* delegate_;
   std::unique_ptr<net::WebSocketChannel> websocket_channel_;
   friend class WebSocketEventHandler;
 

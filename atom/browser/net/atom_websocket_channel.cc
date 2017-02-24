@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "atom/browser/net/atom_websocket_channel.h"
+#include "atom/browser/api/atom_api_websocket.h"
 #include "atom/browser/atom_browser_context.h"
 #include "base/callback.h"
 #include "content/public/browser/browser_thread.h"
@@ -15,12 +16,16 @@
 
 
 
+
 namespace atom {
 
 class WebSocketEventHandler : public net::WebSocketEventInterface {
 public:
-  WebSocketEventHandler(AtomWebSocketChannel* owner)
+  explicit WebSocketEventHandler(AtomWebSocketChannel* owner)
     : owner_(owner) {
+  }
+
+  virtual ~WebSocketEventHandler() override {
   }
 
   // Called when a URLRequest is created for handshaking.
@@ -36,17 +41,6 @@ public:
     return ChannelState::CHANNEL_ALIVE;
   };
 
-
-  // Called when a data frame has been received from the remote host and needs
-  // to be forwarded to the renderer process.
-  virtual ChannelState OnDataFrame(
-    bool fin,
-    WebSocketMessageType type,
-    const std::vector<char>& data) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
-    return ChannelState::CHANNEL_ALIVE;
-  }
-
   // Called when a data frame has been received from the remote host and needs
   // to be forwarded to the renderer process.
   virtual ChannelState OnDataFrame(bool fin,
@@ -54,6 +48,15 @@ public:
     scoped_refptr<net::IOBuffer> buffer,
     size_t buffer_size) {
     DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
+
+    content::BrowserThread::PostTask(content::BrowserThread::UI, FROM_HERE,
+      base::Bind(&AtomWebSocketChannel::OnDataFrame,
+        owner_,
+        fin,
+        static_cast<net::WebSocketFrameHeader::OpCodeEnum>(type),
+        buffer,
+        buffer_size));
+
     return ChannelState::CHANNEL_ALIVE;
   };
 
@@ -119,7 +122,11 @@ public:
   virtual ChannelState OnFinishOpeningHandshake(
     std::unique_ptr<net::WebSocketHandshakeResponseInfo> response) {
     DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
-    owner_->OnFinishOpeningHandshake(std::move(response));
+
+    content::BrowserThread::PostTask(content::BrowserThread::UI, FROM_HERE,
+      base::Bind(&AtomWebSocketChannel::OnFinishOpeningHandshake,
+        owner_,
+        base::Passed(std::move(response))));
     return ChannelState::CHANNEL_ALIVE;
   }
 
@@ -147,7 +154,8 @@ private:
 scoped_refptr<AtomWebSocketChannel> AtomWebSocketChannel::Create(
   AtomBrowserContext* browser_context,
   GURL&& url,
-  std::vector<std::string>&& protocols) {
+  std::vector<std::string>&& protocols,
+  api::WebSocket* delegate) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   DCHECK(browser_context);
@@ -162,7 +170,7 @@ scoped_refptr<AtomWebSocketChannel> AtomWebSocketChannel::Create(
   } 
 
   scoped_refptr<AtomWebSocketChannel> atom_websocket_channel(
-    new AtomWebSocketChannel());
+    new AtomWebSocketChannel(delegate));
 
   content::BrowserThread::PostTask(
     content::BrowserThread::IO, FROM_HERE,
@@ -174,7 +182,8 @@ scoped_refptr<AtomWebSocketChannel> AtomWebSocketChannel::Create(
   return atom_websocket_channel;
 }
 
-AtomWebSocketChannel::AtomWebSocketChannel() {
+AtomWebSocketChannel::AtomWebSocketChannel(api::WebSocket* delegate)
+  : delegate_(delegate) {
 }
 
 AtomWebSocketChannel::~AtomWebSocketChannel() {
@@ -198,13 +207,16 @@ void AtomWebSocketChannel::DoInitialize(
   std::unique_ptr<net::WebSocketEventInterface> websocket_events(
     new WebSocketEventHandler(this));
 
-  websocket_channel_.reset(new net::WebSocketChannel(std::move(websocket_events), context));
+  websocket_channel_.reset(new net::WebSocketChannel(
+    std::move(websocket_events), 
+    context));
 
   url::Origin origin;
   GURL first_party_for_cookies;
   std::string additional_headers;
   websocket_channel_->SendAddChannelRequest(url, protocols, origin,
     first_party_for_cookies, additional_headers);
+  websocket_channel_->SendFlowControl(100000);
 }
 
 void AtomWebSocketChannel::DoTerminate() {
@@ -221,7 +233,8 @@ void AtomWebSocketChannel::Send(
 
 void AtomWebSocketChannel::DoSend(
   scoped_refptr<net::IOBufferWithSize> buffer, bool is_last) {
-  websocket_channel_->SendFrame(is_last, 
+  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
+  auto channel_state = websocket_channel_->SendFrame(is_last, 
     net::WebSocketFrameHeader::OpCodeEnum::kOpCodeText, 
     buffer,
     buffer->size());
@@ -229,18 +242,17 @@ void AtomWebSocketChannel::DoSend(
 
 void AtomWebSocketChannel::OnFinishOpeningHandshake(
   std::unique_ptr<net::WebSocketHandshakeResponseInfo> response) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
-  content::BrowserThread::PostTask(content::BrowserThread::IO, FROM_HERE,
-    base::Bind(&AtomWebSocketChannel::InformFinishOpeningHanshake,
-               this,
-               base::Passed(std::move(response))));
-}
-
-void AtomWebSocketChannel::InformFinishOpeningHanshake(
-  std::unique_ptr<net::WebSocketHandshakeResponseInfo> response) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  delegate_->OnFinishOpeningHandshake(std::move(response));
 }
 
+
+void AtomWebSocketChannel::OnDataFrame(bool fin,
+  net::WebSocketFrameHeader::OpCodeEnum type,
+  scoped_refptr<net::IOBuffer> buffer,
+  size_t buffer_size) {
+  delegate_->OnDataFrame(fin, type, buffer, buffer_size);
+}
 
 
 

@@ -5,8 +5,10 @@
 #include "atom/browser/api/atom_api_websocket.h"
 #include "atom/browser/api/atom_api_session.h"
 #include "atom/browser/net/atom_websocket_channel.h"
+#include "atom/common/api/event_emitter_caller.h"
 #include "atom/common/native_mate_converters/buffer_converter.h"
 #include "atom/common/native_mate_converters/gurl_converter.h"
+#include "atom/common/node_includes.h"
 #include "native_mate/dictionary.h"
 
 
@@ -36,7 +38,8 @@ mate::WrappableBase* WebSocket::New(mate::Arguments* args) {
   websocket->atom_websocket_channel_ = AtomWebSocketChannel::Create(
     browser_context,
     std::move(url),
-    std::move(protocols));
+    std::move(protocols),
+    websocket);
   websocket->Pin();
   return websocket;
 }
@@ -47,8 +50,8 @@ void WebSocket::BuildPrototype(v8::Isolate* isolate,
   prototype->SetClassName(mate::StringToV8(isolate, "WebSocket"));
   mate::ObjectTemplateBuilder(isolate, prototype->PrototypeTemplate())
     // Request API
-    .SetMethod("send", &WebSocket::Send)
-    .SetMethod("close", &WebSocket::Close);
+    .SetMethod("_send", &WebSocket::Send)
+    .SetMethod("_close", &WebSocket::Close);
 }
 
 
@@ -60,6 +63,22 @@ void WebSocket::Send(scoped_refptr<net::IOBufferWithSize> buffer,
 void WebSocket::Close() {
 }
 
+
+void WebSocket::OnFinishOpeningHandshake(
+  std::unique_ptr<net::WebSocketHandshakeResponseInfo> response) {
+  v8::HandleScope handle_scope(isolate());
+  mate::EmitEvent(isolate(), GetWrapper(), "open");
+}
+
+void WebSocket::OnDataFrame(bool fin,
+  net::WebSocketFrameHeader::OpCodeEnum type,
+  scoped_refptr<net::IOBuffer> buffer,
+  size_t buffer_size) {
+  v8::HandleScope handle_scope(isolate());
+  v8::Local<v8::Value> data = node::Buffer::New(isolate(),
+    buffer->data(), buffer_size, nullptr, nullptr).ToLocalChecked();
+  mate::EmitEvent(isolate(), GetWrapper(), "message", data);
+}
 
 void WebSocket::Pin() {
   if (wrapper_.IsEmpty()) {
