@@ -162,6 +162,8 @@ scoped_refptr<AtomWebSocketChannel> AtomWebSocketChannel::Create(
   AtomBrowserContext* browser_context,
   GURL&& url,
   std::vector<std::string>&& protocols,
+  GURL&& origin,
+  std::string&& additional_headers,
   api::WebSocket* delegate) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
@@ -185,7 +187,10 @@ scoped_refptr<AtomWebSocketChannel> AtomWebSocketChannel::Create(
       atom_websocket_channel,
       request_context_getter,
       std::move(url),
-      std::move(protocols)));
+      std::move(protocols),
+      std::move(origin),
+      std::move(additional_headers)
+    ));
   return atom_websocket_channel;
 }
 
@@ -199,7 +204,9 @@ AtomWebSocketChannel::~AtomWebSocketChannel() {
 void AtomWebSocketChannel::DoInitialize(
   scoped_refptr<net::URLRequestContextGetter> request_context_getter,
   const GURL& url,
-  const std::vector<std::string>& protocols) {
+  const std::vector<std::string>& protocols,
+  const GURL& origin,
+  const std::string& additional_headers) {
 
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
   DCHECK(request_context_getter);
@@ -218,10 +225,8 @@ void AtomWebSocketChannel::DoInitialize(
     std::move(websocket_events), 
     context));
 
-  url::Origin origin;
   GURL first_party_for_cookies;
-  std::string additional_headers;
-  websocket_channel_->SendAddChannelRequest(url, protocols, origin,
+  websocket_channel_->SendAddChannelRequest(url, protocols, url::Origin(origin),
     first_party_for_cookies, additional_headers);
   websocket_channel_->SendFlowControl(100000);
 }

@@ -12,6 +12,7 @@
 #include "atom/common/native_mate_converters/value_converter.h"
 #include "atom/common/node_includes.h"
 #include "native_mate/dictionary.h"
+#include "net/http/http_request_headers.h"
 
 
 
@@ -29,18 +30,121 @@ WebSocket::~WebSocket() {
 // static
 mate::WrappableBase* WebSocket::New(mate::Arguments* args) {
   auto isolate = args->isolate();
+
+  if (args->Length() == 0) {
+    args->ThrowError("A URL is required for WebSocket constructor");
+    return nullptr;
+  }
+
   GURL url;
-  args->GetNext(&url);
+  if (!args->GetNext(&url)) {
+    args->ThrowTypeError("First argument to WebSocket constructor must be a valid URL");
+    return nullptr;
+  }
+
+  std::string session = "";
   std::vector<std::string> protocols;
-  args->GetNext(&protocols);
+  GURL origin;
+  std::string additional_headers;
+
+  auto next = args->PeekNext();
+  if (next.IsEmpty()) {
+    // JS code: ws = new WebSocket('ws://blabla.com')
+    return NewInternal(args->isolate(),
+      args->GetThis(),
+      std::move(session),
+      std::move(url),
+      std::move(protocols),
+      std::move(origin),
+      std::move(additional_headers));
+  }
+
+  if (next->IsString()) {
+    // JS code: ws = new WebSocket('ws://blabla.com', 'chat')
+    std::string protocol;
+    if (!args->GetNext(&protocol)) {
+      args->ThrowTypeError("Second argument does not seem to be a valid protocol string");
+      return nullptr;
+    }
+    protocols.push_back(std::move(protocol));
+    next = args->PeekNext();
+  } else if (next->IsArray()) {
+    // JS code: ws = new WebSocket('ws://blabla.com', ['chat', 'superchat'])
+    if (!args->GetNext(&protocols)) {
+      args->ThrowTypeError("Second argument must be an array of strings");
+      return nullptr;
+    }
+    next = args->PeekNext();
+  } 
   
-  auto session = Session::FromPartition(isolate, "");
+  if (next.IsEmpty()) {
+    // User did not specify an options object.
+    return NewInternal(args->isolate(),
+      args->GetThis(),
+      std::move(session),
+      std::move(url),
+      std::move(protocols),
+      std::move(origin),
+      std::move(additional_headers));
+  }
+
+  // JS code: ws = new WebSocket('ws://blabla.com', {
+  //  headers: {
+  //    'Additional-Header': Some-Value
+  //  }
+  // })
+  if (next->IsObject()) {
+    mate::Dictionary options;
+    if (!args->GetNext(&options)) {
+      args->ThrowTypeError("Options does not seem to be a valid object");
+      return nullptr;
+    }
+
+    // session option
+    options.Get("session", &session);
+
+    // headers option
+    mate::Dictionary headers_dict;
+    std::map<std::string, std::string> headers_map;
+    if (options.Get("headers", &headers_dict) &&
+      mate::ConvertFromV8(isolate, headers_dict.GetHandle(), &headers_map)) {
+      net::HttpRequestHeaders headers;
+      for (auto& pair : headers_map) {
+        headers.SetHeader(pair.first, std::move(pair.second));
+      }
+      additional_headers = headers.ToString();
+    }
+
+    // origin option
+    options.Get("origin", &origin);
+  }
+
+   return NewInternal(args->isolate(),
+     args->GetThis(),
+     std::move(session),
+     std::move(url),
+     std::move(protocols),
+     std::move(origin),
+     std::move(additional_headers));
+}
+
+mate::WrappableBase* WebSocket::NewInternal(v8::Isolate* isolate,
+  v8::Local<v8::Object> wrapper,
+  std::string&& sessionName,
+  GURL&& url,
+  std::vector<std::string>&& protocols,
+  GURL&& origin,
+  std::string&& additional_headers) {
+
+  auto session = Session::FromPartition(isolate, sessionName);
   auto browser_context = session->browser_context();
-  auto websocket =  new WebSocket(args->isolate(), args->GetThis());
+  auto websocket = new WebSocket(isolate, wrapper);
   websocket->atom_websocket_channel_ = AtomWebSocketChannel::Create(
     browser_context,
     std::move(url),
     std::move(protocols),
+    std::move(origin),
+    std::move(additional_headers),
     websocket);
   websocket->Pin();
   return websocket;

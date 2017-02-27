@@ -42,6 +42,8 @@ public:
     AtomBrowserContext* browser_context,
     GURL&& url,
     std::vector<std::string>&& protocols,
+    GURL&& origin,
+    std::string&& additional_headers,
     api::WebSocket* delegate);
 
   void Send(scoped_refptr<net::IOBufferWithSize> buffer,
@@ -55,7 +57,9 @@ private:
 
   void DoInitialize(scoped_refptr<net::URLRequestContextGetter>,
     const GURL& url,
-    const std::vector<std::string>& protocols);
+    const std::vector<std::string>& protocols,
+    const GURL& origin,
+    const std::string& additional_headers);
   void DoTerminate();
 
   void DoSend(scoped_refptr<net::IOBufferWithSize> buffer,

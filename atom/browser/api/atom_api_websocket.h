@@ -9,6 +9,8 @@
 #include "atom/browser/api/event_emitter.h"
 #include "net/websockets/websocket_frame.h"
 
+class GURL;
+
 namespace net {
 class IOBufferWithSize;
 struct WebSocketHandshakeResponseInfo;
@@ -34,11 +36,17 @@ public:
     scoped_refptr<net::IOBuffer> buffer,
     size_t buffer_size);
   void OnDropChannel(bool was_clean, uint32_t code, const std::string& reason);
-protected:
-  explicit WebSocket(v8::Isolate* isolate, v8::Local<v8::Object> wrapper);
-  virtual ~WebSocket() override;
 
 private:
+  static mate::WrappableBase* NewInternal(v8::Isolate* isolate,
+    v8::Local<v8::Object> wrapper,
+    std::string&& sessionName,
+    GURL&& url,
+    std::vector<std::string>&& protocols,
+    GURL&& origin,
+    std::string&& additional_headers);
+  explicit WebSocket(v8::Isolate* isolate, v8::Local<v8::Object> wrapper);
+  virtual ~WebSocket() override;
   void Send(scoped_refptr<net::IOBufferWithSize> buffer,
     net::WebSocketFrameHeader::OpCodeEnum op_code,
     bool is_last);
