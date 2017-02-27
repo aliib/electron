@@ -113,6 +113,20 @@ v8::Local<v8::Value> Converter<net::HttpResponseHeaders*>::ToV8(
   return ConvertToV8(isolate, response_headers);
 }
 
+// static
+bool Converter<net::WebSocketFrameHeader::OpCodeEnum>::FromV8(
+  v8::Isolate* isolate,
+  v8::Local<v8::Value> val,
+  net::WebSocketFrameHeader::OpCodeEnum* out) {
+    unsigned long value = 0;
+    auto result = Converter<unsigned long>::FromV8(isolate, val, &value);
+    if (result && out) {
+      *out = static_cast<net::WebSocketFrameHeader::OpCodeEnum>(value);
+    }
+    return result;
+}
+
+
 }  // namespace mate
 
 namespace atom {

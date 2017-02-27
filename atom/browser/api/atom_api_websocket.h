@@ -33,13 +33,16 @@ public:
     net::WebSocketFrameHeader::OpCodeEnum type,
     scoped_refptr<net::IOBuffer> buffer,
     size_t buffer_size);
+  void OnDropChannel(bool was_clean, uint32_t code, const std::string& reason);
 protected:
   explicit WebSocket(v8::Isolate* isolate, v8::Local<v8::Object> wrapper);
   virtual ~WebSocket() override;
 
 private:
-  void Send(scoped_refptr<net::IOBufferWithSize> buffer, bool is_last);
-  void Close();
+  void Send(scoped_refptr<net::IOBufferWithSize> buffer,
+    net::WebSocketFrameHeader::OpCodeEnum op_code,
+    bool is_last);
+  void Close(uint32_t code, const std::string& reason);
   void Pin();
   void Unpin();
 

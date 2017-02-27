@@ -96,6 +96,13 @@ public:
     uint16_t code,
     const std::string& reason) {
     DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
+    content::BrowserThread::PostTask(content::BrowserThread::UI, FROM_HERE,
+      base::Bind(&AtomWebSocketChannel::OnDropChannel,
+        owner_,
+        was_clean,
+        code,
+        reason));
+
     return ChannelState::CHANNEL_DELETED;
   }
 
@@ -223,22 +230,37 @@ void AtomWebSocketChannel::DoTerminate() {
 }
 
 void AtomWebSocketChannel::Send(
-  scoped_refptr<net::IOBufferWithSize> buffer, bool is_last) {
+  scoped_refptr<net::IOBufferWithSize> buffer,
+  net::WebSocketFrameHeader::OpCodeEnum op_code, bool is_last) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
  content::BrowserThread::PostTask(
     content::BrowserThread::IO, FROM_HERE,
-    base::Bind(&AtomWebSocketChannel::DoSend, this, buffer, is_last));
+    base::Bind(&AtomWebSocketChannel::DoSend, this, buffer, op_code, is_last));
 }
 
+void AtomWebSocketChannel::Close(uint16_t code, const std::string& reason) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  content::BrowserThread::PostTask(
+    content::BrowserThread::IO, FROM_HERE,
+    base::Bind(&AtomWebSocketChannel::DoClose, this, code, reason));
+}
 
 void AtomWebSocketChannel::DoSend(
-  scoped_refptr<net::IOBufferWithSize> buffer, bool is_last) {
+  scoped_refptr<net::IOBufferWithSize> buffer,
+  net::WebSocketFrameHeader::OpCodeEnum op_code, bool is_last) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
   auto channel_state = websocket_channel_->SendFrame(is_last, 
-    net::WebSocketFrameHeader::OpCodeEnum::kOpCodeText, 
+    op_code, 
     buffer,
     buffer->size());
 }
+
+
+void AtomWebSocketChannel::DoClose(uint16_t code, const std::string& reason) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
+  websocket_channel_->StartClosingHandshake(code, reason);
+}
+
 
 void AtomWebSocketChannel::OnFinishOpeningHandshake(
   std::unique_ptr<net::WebSocketHandshakeResponseInfo> response) {
@@ -254,6 +276,12 @@ void AtomWebSocketChannel::OnDataFrame(bool fin,
   delegate_->OnDataFrame(fin, type, buffer, buffer_size);
 }
 
+
+void AtomWebSocketChannel::OnDropChannel(bool was_clean, uint16_t code,
+  const std::string& reason) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  delegate_->OnDropChannel(was_clean, code, reason);
+}
 
 
 

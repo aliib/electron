@@ -7,6 +7,7 @@
 
 #include "base/memory/ref_counted.h"
 #include "native_mate/converter.h"
+#include "net/websockets/websocket_frame.h"
 
 namespace base {
 class DictionaryValue;
@@ -45,6 +46,13 @@ template <>
 struct Converter<net::HttpResponseHeaders*> {
   static v8::Local<v8::Value> ToV8(v8::Isolate* isolate,
                                    net::HttpResponseHeaders* headers);
+};
+
+template <>
+struct Converter<net::WebSocketFrameHeader::OpCodeEnum> {
+  static bool FromV8(v8::Isolate* isolate,
+    v8::Local<v8::Value> val,
+    net::WebSocketFrameHeader::OpCodeEnum* out);
 };
 
 }  // namespace mate

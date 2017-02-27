@@ -8,6 +8,8 @@
 #include "atom/common/api/event_emitter_caller.h"
 #include "atom/common/native_mate_converters/buffer_converter.h"
 #include "atom/common/native_mate_converters/gurl_converter.h"
+#include "atom/common/native_mate_converters/net_converter.h"
+#include "atom/common/native_mate_converters/value_converter.h"
 #include "atom/common/node_includes.h"
 #include "native_mate/dictionary.h"
 
@@ -56,11 +58,13 @@ void WebSocket::BuildPrototype(v8::Isolate* isolate,
 
 
 void WebSocket::Send(scoped_refptr<net::IOBufferWithSize> buffer,
+  net::WebSocketFrameHeader::OpCodeEnum op_code,
   bool is_last) {
-  atom_websocket_channel_->Send(buffer, is_last);
+  atom_websocket_channel_->Send(buffer, op_code, is_last);
 }
 
-void WebSocket::Close() {
+void WebSocket::Close(uint32_t code, const std::string& reason) {
+  atom_websocket_channel_->Close(static_cast<uint16_t>(code), reason);
 }
 
 
@@ -78,6 +82,13 @@ void WebSocket::OnDataFrame(bool fin,
   v8::Local<v8::Value> data = node::Buffer::New(isolate(),
     buffer->data(), buffer_size, nullptr, nullptr).ToLocalChecked();
   mate::EmitEvent(isolate(), GetWrapper(), "message", data);
+}
+
+
+void WebSocket::OnDropChannel(bool was_clean, uint32_t code,
+  const std::string& reason) {
+  v8::HandleScope handle_scope(isolate());
+  mate::EmitEvent(isolate(), GetWrapper(), "close", code, reason);
 }
 
 void WebSocket::Pin() {

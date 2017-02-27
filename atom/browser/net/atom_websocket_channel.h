@@ -44,7 +44,9 @@ public:
     std::vector<std::string>&& protocols,
     api::WebSocket* delegate);
 
-  void Send(scoped_refptr<net::IOBufferWithSize> buffer, bool is_last);
+  void Send(scoped_refptr<net::IOBufferWithSize> buffer,
+    net::WebSocketFrameHeader::OpCodeEnum op_code, bool is_last);
+  void Close(uint16_t code, const std::string& reason);
 
 private:
   friend class base::RefCountedThreadSafe<AtomWebSocketChannel>;
@@ -56,7 +58,9 @@ private:
     const std::vector<std::string>& protocols);
   void DoTerminate();
 
-  void DoSend(scoped_refptr<net::IOBufferWithSize> buffer, bool is_last);
+  void DoSend(scoped_refptr<net::IOBufferWithSize> buffer,
+    net::WebSocketFrameHeader::OpCodeEnum op_code, bool is_last);
+  void DoClose(uint16_t code, const std::string& reason);
 
   void OnFinishOpeningHandshake(
     std::unique_ptr<net::WebSocketHandshakeResponseInfo> response);
@@ -64,6 +68,7 @@ private:
     net::WebSocketFrameHeader::OpCodeEnum type,
     scoped_refptr<net::IOBuffer> buffer,
     size_t buffer_size);
+  void OnDropChannel(bool was_clean, uint16_t code, const std::string& reason);
 private:
   api::WebSocket* delegate_;
   std::unique_ptr<net::WebSocketChannel> websocket_channel_;
