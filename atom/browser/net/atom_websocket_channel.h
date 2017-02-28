@@ -66,13 +66,22 @@ private:
     net::WebSocketFrameHeader::OpCodeEnum op_code, bool is_last);
   void DoClose(uint16_t code, const std::string& reason);
 
+  
+  void OnStartOpeningHandshake(
+    std::unique_ptr<net::WebSocketHandshakeRequestInfo> request);
   void OnFinishOpeningHandshake(
     std::unique_ptr<net::WebSocketHandshakeResponseInfo> response);
+  void OnAddChannelResponse(
+    const std::string& selected_subprotocol,
+    const std::string& extensions);
   void OnDataFrame(bool fin,
     net::WebSocketFrameHeader::OpCodeEnum type,
     scoped_refptr<net::IOBuffer> buffer,
     size_t buffer_size);
+  void OnFlowControl(int64_t quota);
+  void OnClosingHandshake();
   void OnDropChannel(bool was_clean, uint16_t code, const std::string& reason);
+  void OnFailChannel(const std::string& message);
 private:
   api::WebSocket* delegate_;
   std::unique_ptr<net::WebSocketChannel> websocket_channel_;

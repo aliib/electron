@@ -157,7 +157,9 @@ void WebSocket::BuildPrototype(v8::Isolate* isolate,
   mate::ObjectTemplateBuilder(isolate, prototype->PrototypeTemplate())
     // Request API
     .SetMethod("_send", &WebSocket::Send)
-    .SetMethod("_close", &WebSocket::Close);
+    .SetMethod("_close", &WebSocket::Close)
+    .SetProperty("extensions", &WebSocket::Extensions)
+    .SetProperty("protocol", &WebSocket::Protocol);
 }
 
 
@@ -171,29 +173,60 @@ void WebSocket::Close(uint32_t code, const std::string& reason) {
   atom_websocket_channel_->Close(static_cast<uint16_t>(code), reason);
 }
 
+const std::string& WebSocket::Protocol() const {
+  return selected_subprotocol_;
+}
+
+const std::string& WebSocket::Extensions() const {
+  return extensions_;
+}
+
+void WebSocket::OnStartOpeningHandshake(
+  std::unique_ptr<net::WebSocketHandshakeRequestInfo> request) {
+  handshake_request_info_ = std::move(request);
+}
 
 void WebSocket::OnFinishOpeningHandshake(
   std::unique_ptr<net::WebSocketHandshakeResponseInfo> response) {
+  handshake_response_info_ = std::move(response);
   v8::HandleScope handle_scope(isolate());
   mate::EmitEvent(isolate(), GetWrapper(), "open");
+}
+
+void WebSocket::OnAddChannelResponse(
+  const std::string& selected_subprotocol,
+  const std::string& extensions) {
+  selected_subprotocol_ = selected_subprotocol;
+  extensions_ = extensions;
 }
 
 void WebSocket::OnDataFrame(bool fin,
   net::WebSocketFrameHeader::OpCodeEnum type,
   scoped_refptr<net::IOBuffer> buffer,
   size_t buffer_size) {
+
   v8::HandleScope handle_scope(isolate());
-  v8::Local<v8::Value> data = node::Buffer::New(isolate(),
-    buffer->data(), buffer_size, nullptr, nullptr).ToLocalChecked();
+  auto data = node::Buffer::Copy(isolate(),
+    buffer->data(),
+    buffer_size).ToLocalChecked();
   mate::EmitEvent(isolate(), GetWrapper(), "message", data);
 }
 
+void WebSocket::OnFlowControl(int64_t quota) {
+}
+
+void WebSocket::OnClosingHandshake() {
+}
 
 void WebSocket::OnDropChannel(bool was_clean, uint32_t code,
   const std::string& reason) {
   v8::HandleScope handle_scope(isolate());
   mate::EmitEvent(isolate(), GetWrapper(), "close", code, reason);
 }
+
+void WebSocket::OnFailChannel(const std::string& message) {
+}
+
 
 void WebSocket::Pin() {
   if (wrapper_.IsEmpty()) {
