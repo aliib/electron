@@ -43,7 +43,6 @@ public:
     net::WebSocketFrameHeader::OpCodeEnum type,
     scoped_refptr<net::IOBuffer> buffer,
     size_t buffer_size);
-  void OnFlowControl(int64_t quota);
   void OnClosingHandshake();
   void OnDropChannel(bool was_clean, uint32_t code, const std::string& reason);
   void OnFailChannel(const std::string& message);

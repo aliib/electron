@@ -212,8 +212,6 @@ void WebSocket::OnDataFrame(bool fin,
   mate::EmitEvent(isolate(), GetWrapper(), "message", data);
 }
 
-void WebSocket::OnFlowControl(int64_t quota) {
-}
 
 void WebSocket::OnClosingHandshake() {
 }
