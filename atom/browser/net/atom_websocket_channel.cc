@@ -57,19 +57,25 @@ public:
         buffer,
         buffer_size));
 
+    // Avoid potential re-entry issues with SendFlowControl <-> OnDataFrame.
+    // SendFlowControl in the next IO cycle.
+    content::BrowserThread::PostTask(content::BrowserThread::IO, FROM_HERE,
+      base::Bind(&AtomWebSocketChannel::DoSendFlowControl,
+        owner_));
+
     return ChannelState::CHANNEL_ALIVE;
   };
 
   virtual ChannelState OnFlowControl(int64_t quota) {
     DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
-    owner_->OnFlowControl(quota);
+    // Avoid potential re-entry issues with OnFlowControl <-> SendFrame.
+    // Check pending frames in the next IO cycle.
+    content::BrowserThread::PostTask(content::BrowserThread::IO, FROM_HERE,
+      base::Bind(&AtomWebSocketChannel::OnFlowControl,
+        owner_, quota));
     return ChannelState::CHANNEL_ALIVE;
   }
 
-  // Called when the remote server has Started the WebSocket Closing
-  // Handshake. The client should not attempt to send any more messages after
-  // receiving this message. It will be followed by OnDropChannel() when the
-  // closing handshake is complete.
   virtual ChannelState OnClosingHandshake() {
     DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
     content::BrowserThread::PostTask(content::BrowserThread::UI, FROM_HERE,
@@ -78,21 +84,6 @@ public:
     return ChannelState::CHANNEL_ALIVE;
   }
 
-  // Called when the channel has been dropped, either due to a network close, a
-  // network error, or a protocol error. This may or may not be preceeded by a
-  // call to OnClosingHandshake().
-  //
-  // Warning: Both the |code| and |reason| are passed through to Javascript, so
-  // callers must take care not to provide details that could be useful to
-  // attackers attempting to use WebSockets to probe networks.
-  //
-  // |was_clean| should be true if the closing handshake completed successfully.
-  //
-  // The channel should not be used again after OnDropChannel() has been
-  // called.
-  //
-  // This method returns a ChannelState for consistency, but all implementations
-  // must delete the Channel and return CHANNEL_DELETED.
   virtual ChannelState OnDropChannel(bool was_clean,
     uint16_t code,
     const std::string& reason) {
@@ -107,13 +98,6 @@ public:
     return ChannelState::CHANNEL_DELETED;
   }
 
-  // Called when the browser fails the channel, as specified in the spec.
-  //
-  // The channel should not be used again after OnFailChannel() has been
-  // called.
-  //
-  // This method returns a ChannelState for consistency, but all implementations
-  // must delete the Channel and return CHANNEL_DELETED.
   virtual ChannelState OnFailChannel(const std::string& message) {
     DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
     content::BrowserThread::PostTask(content::BrowserThread::UI, FROM_HERE,
@@ -144,13 +128,6 @@ public:
     return ChannelState::CHANNEL_ALIVE;
   }
 
-
-  // Called on SSL Certificate Error during the SSL handshake. Should result in
-  // a call to either ssl_error_callbacks->ContinueSSLRequest() or
-  // ssl_error_callbacks->CancelSSLRequest(). Normally the implementation of
-  // this method will delegate to content::SSLManager::OnSSLCertificateError to
-  // make the actual decision. The callbacks must not be called after the
-  // WebSocketChannel has been destroyed.
   virtual ChannelState OnSSLCertificateError(
     std::unique_ptr<SSLErrorCallbacks> ssl_error_callbacks,
     const GURL& url,
@@ -237,8 +214,7 @@ void AtomWebSocketChannel::DoInitialize(
   websocket_channel_->SendAddChannelRequest(url, protocols, url::Origin(origin),
     first_party_for_cookies, additional_headers);
 
-  // TODO
-  websocket_channel_->SendFlowControl(100000);
+  DoSendFlowControl();
 }
 
 void AtomWebSocketChannel::DoTerminate() {
@@ -271,7 +247,14 @@ void AtomWebSocketChannel::DoSend(
 }
 
 void AtomWebSocketChannel::DoProcessPendingFrames() {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
+  DCHECK_GE(send_quota_, 0);
+
   if (pending_frames_.empty()) {
+    return;
+  }
+
+  if (send_quota_ == 0) {
     return;
   }
 
@@ -319,6 +302,11 @@ void AtomWebSocketChannel::DoProcessPendingFrames() {
     buffer->size());
 }
 
+void AtomWebSocketChannel::DoSendFlowControl() {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
+  websocket_channel_->SendFlowControl(INT_MAX);
+}
+
 void AtomWebSocketChannel::DoClose(uint16_t code, const std::string& reason) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
   websocket_channel_->StartClosingHandshake(code, reason);
@@ -326,6 +314,7 @@ void AtomWebSocketChannel::DoClose(uint16_t code, const std::string& reason) {
 
 void AtomWebSocketChannel::OnStartOpeningHandshake(
   std::unique_ptr<net::WebSocketHandshakeRequestInfo> request) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   delegate_->OnStartOpeningHandshake(std::move(request));
 }
 
@@ -339,6 +328,7 @@ void AtomWebSocketChannel::OnFinishOpeningHandshake(
 void AtomWebSocketChannel::OnAddChannelResponse(
   const std::string& selected_subprotocol,
   const std::string& extensions) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   delegate_->OnAddChannelResponse(selected_subprotocol, extensions);
 }
 
@@ -347,6 +337,7 @@ void AtomWebSocketChannel::OnDataFrame(bool fin,
   net::WebSocketFrameHeader::OpCodeEnum type,
   scoped_refptr<net::IOBuffer> buffer,
   size_t buffer_size) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   delegate_->OnDataFrame(fin, type, buffer, buffer_size);
 }
 

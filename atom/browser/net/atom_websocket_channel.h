@@ -85,6 +85,7 @@ private:
   void DoSend(scoped_refptr<net::IOBufferWithSize> buffer,
     net::WebSocketFrameHeader::OpCodeEnum op_code, bool is_last);
   void DoProcessPendingFrames();
+  void DoSendFlowControl();
   void DoClose(uint16_t code, const std::string& reason);
 
   
