@@ -126,6 +126,8 @@ void AtomMainDelegate::PreSandboxStartup() {
   if (!IsBrowserProcess(command_line))
     return;
 
+  ::MessageBox(nullptr, TEXT("Attach Debugger"), TEXT("Attach Debugger"), MB_SETFOREGROUND);
+
   if (command_line->HasSwitch(switches::kEnableSandbox)) {
     // Disable setuid sandbox since it is not longer required on linux(namespace
     // sandbox is available on most distros).
