@@ -96,6 +96,7 @@ private:
   void OnAddChannelResponse(
     const std::string& selected_subprotocol,
     const std::string& extensions);
+  void OnBufferedAmountUpdate(uint32_t buffered_amount);
   void OnDataFrame(bool fin,
     net::WebSocketFrameHeader::OpCodeEnum type,
     scoped_refptr<net::IOBuffer> buffer,
@@ -112,6 +113,7 @@ private:
 
   int64_t send_quota_;
   std::deque<std::unique_ptr<WebSocketFrame>> pending_frames_;
+  uint32_t buffered_amount_;
 
   DISALLOW_COPY_AND_ASSIGN(AtomWebSocketChannel);
 };

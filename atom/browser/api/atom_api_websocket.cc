@@ -14,13 +14,27 @@
 #include "native_mate/dictionary.h"
 #include "net/http/http_request_headers.h"
 
+namespace mate {
 
+template<>
+struct Converter<atom::api::WebSocket::State> {
+  static v8::Local<v8::Value> ToV8(v8::Isolate* isolate,
+    atom::api::WebSocket::State state) {
+    return Converter<uint32_t>::ToV8(isolate, static_cast<uint32_t>(state));
+  }
+};
+
+} // namespace mate
 
 namespace atom {
 
 namespace api {
 
-WebSocket::WebSocket(v8::Isolate* isolate, v8::Local<v8::Object> wrapper) {
+WebSocket::WebSocket(v8::Isolate* isolate, v8::Local<v8::Object> wrapper, 
+  const GURL& url)
+  : state_(State::CONNECTING)
+  , buffered_amount_(0)
+  , url_(url) {
   InitWith(isolate, wrapper);
 }
 
@@ -138,7 +152,7 @@ mate::WrappableBase* WebSocket::NewInternal(v8::Isolate* isolate,
 
   auto session = Session::FromPartition(isolate, sessionName);
   auto browser_context = session->browser_context();
-  auto websocket = new WebSocket(isolate, wrapper);
+  auto websocket = new WebSocket(isolate, wrapper, url);
   websocket->atom_websocket_channel_ = AtomWebSocketChannel::Create(
     browser_context,
     std::move(url),
@@ -158,8 +172,13 @@ void WebSocket::BuildPrototype(v8::Isolate* isolate,
     // Request API
     .SetMethod("_send", &WebSocket::Send)
     .SetMethod("_close", &WebSocket::Close)
+    .SetProperty("binaryType", &WebSocket::GetBinaryType, 
+      &WebSocket::SetBinaryType)
+    .SetProperty("bufferedAmount", &WebSocket::BufferedAmount)
     .SetProperty("extensions", &WebSocket::Extensions)
-    .SetProperty("protocol", &WebSocket::Protocol);
+    .SetProperty("protocol", &WebSocket::Protocol)
+    .SetProperty("readyState", &WebSocket::ReadyState)
+    .SetProperty("url", &WebSocket::Url);
 }
 
 
@@ -170,15 +189,49 @@ void WebSocket::Send(scoped_refptr<net::IOBufferWithSize> buffer,
 }
 
 void WebSocket::Close(uint32_t code, const std::string& reason) {
+  if (state_ != State::CLOSED) {
+    state_ = State::CLOSING;
+  }
   atom_websocket_channel_->Close(static_cast<uint16_t>(code), reason);
+}
+
+const char* WebSocket::GetBinaryType() const {
+  if (binary_type_ == BinaryType::NODE_BUFFER) {
+    return "nodebuffer";
+  } else {
+    return "arraybuffer";
+  };
+}
+
+void WebSocket::SetBinaryType(const std::string& binary_type) {
+  if (binary_type == "nodebuffer") {
+    binary_type_ = BinaryType::NODE_BUFFER;
+  } else if (binary_type == "arraybuffer") {
+    binary_type_ = BinaryType::ARRAY_BUFFER;
+  } else {
+    isolate()->ThrowException(v8::Exception::Error(mate::StringToV8(
+      isolate(), "Unsupported binaryType")));
+  }
+}
+
+uint32_t WebSocket::BufferedAmount() const {
+  return buffered_amount_;
+}
+
+const std::string& WebSocket::Extensions() const {
+  return extensions_;
 }
 
 const std::string& WebSocket::Protocol() const {
   return selected_subprotocol_;
 }
 
-const std::string& WebSocket::Extensions() const {
-  return extensions_;
+WebSocket::State WebSocket::ReadyState() const {
+  return state_;
+}
+
+GURL WebSocket::Url() const {
+  return url_;
 }
 
 void WebSocket::OnStartOpeningHandshake(
@@ -189,6 +242,7 @@ void WebSocket::OnStartOpeningHandshake(
 void WebSocket::OnFinishOpeningHandshake(
   std::unique_ptr<net::WebSocketHandshakeResponseInfo> response) {
   handshake_response_info_ = std::move(response);
+  state_ = State::OPEN;
   v8::HandleScope handle_scope(isolate());
   mate::EmitEvent(isolate(), GetWrapper(), "open");
 }
@@ -200,6 +254,10 @@ void WebSocket::OnAddChannelResponse(
   extensions_ = extensions;
 }
 
+void WebSocket::OnBufferedAmountUpdate(uint32_t buffered_amount) {
+  buffered_amount_ = buffered_amount;
+}
+
 void WebSocket::OnDataFrame(bool fin,
   net::WebSocketFrameHeader::OpCodeEnum type,
   scoped_refptr<net::IOBuffer> buffer,
@@ -209,20 +267,26 @@ void WebSocket::OnDataFrame(bool fin,
   auto data = node::Buffer::Copy(isolate(),
     buffer->data(),
     buffer_size).ToLocalChecked();
+
+  // TODO: implement conversion to ArrayBuffer if needed.
   mate::EmitEvent(isolate(), GetWrapper(), "message", data);
 }
-
 
 void WebSocket::OnClosingHandshake() {
 }
 
 void WebSocket::OnDropChannel(bool was_clean, uint32_t code,
   const std::string& reason) {
+  state_ = State::CLOSED;
   v8::HandleScope handle_scope(isolate());
   mate::EmitEvent(isolate(), GetWrapper(), "close", code, reason);
 }
 
 void WebSocket::OnFailChannel(const std::string& message) {
+  v8::HandleScope handle_scope(isolate());
+  auto error_object = v8::Exception::Error(mate::StringToV8(isolate(), 
+    message));
+  mate::EmitEvent(isolate(), GetWrapper(), "error", error_object);
 }
 
 

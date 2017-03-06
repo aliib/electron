@@ -180,7 +180,8 @@ scoped_refptr<AtomWebSocketChannel> AtomWebSocketChannel::Create(
 
 AtomWebSocketChannel::AtomWebSocketChannel(api::WebSocket* delegate)
   : delegate_(delegate)
-  , send_quota_(0) {
+  , send_quota_(0)
+  , buffered_amount_(0) {
 }
 
 AtomWebSocketChannel::~AtomWebSocketChannel() {
@@ -241,6 +242,7 @@ void AtomWebSocketChannel::DoSend(
   net::WebSocketFrameHeader::OpCodeEnum op_code, bool is_last) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
 
+  buffered_amount_ += buffer->size();
   pending_frames_.push_back(std::make_unique<WebSocketFrame>(buffer,
     op_code, is_last));
   DoProcessPendingFrames();
@@ -296,6 +298,7 @@ void AtomWebSocketChannel::DoProcessPendingFrames() {
   }
 
   send_quota_ -= buffer->size();
+  buffered_amount_ -= buffer->size();
   auto channel_state = websocket_channel_->SendFrame(fin,
     op_code,
     buffer,
@@ -341,7 +344,13 @@ void AtomWebSocketChannel::OnDataFrame(bool fin,
   delegate_->OnDataFrame(fin, type, buffer, buffer_size);
 }
 
+void AtomWebSocketChannel::OnBufferedAmountUpdate(uint32_t buffered_amount) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  delegate_->OnBufferedAmountUpdate(buffered_amount);
+}
+
 void AtomWebSocketChannel::OnFlowControl(int64_t quota) {
+  // Send flow control is entirely managed in the IO thread.
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
   send_quota_ = quota;
   DoProcessPendingFrames();
