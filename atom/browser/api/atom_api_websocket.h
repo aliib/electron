@@ -5,9 +5,11 @@
 #ifndef ATOM_BROWSER_API_ATOM_API_WEBSOCKET_H_
 #define ATOM_BROWSER_API_ATOM_API_WEBSOCKET_H_
 
+#include <queue>
 #include <string>
 #include <base/macros.h>
 #include "atom/browser/api/event_emitter.h"
+#include "atom/browser/net/atom_websocket_frame.h"
 #include "net/websockets/websocket_frame.h"
 #include "url/gurl.h"
 
@@ -41,9 +43,9 @@ public:
     const std::string& extensions);
   void OnBufferedAmountUpdate(uint32_t buffered_amount);
   void OnDataFrame(bool fin,
-    net::WebSocketFrameHeader::OpCodeEnum type,
-    scoped_refptr<net::IOBuffer> buffer,
-    size_t buffer_size);
+    net::WebSocketFrameHeader::OpCodeEnum frame_op_code,
+    scoped_refptr<net::IOBuffer> frame_buffer,
+    size_t frame_size);
   void OnClosingHandshake();
   void OnDropChannel(bool was_clean, uint32_t code, const std::string& reason);
   void OnFailChannel(const std::string& message);
@@ -98,6 +100,8 @@ private:
   std::string selected_subprotocol_;
   State state_;
   GURL url_;
+
+  std::vector<WebSocketFrame> pending_frames_;
 
   DISALLOW_COPY_AND_ASSIGN(WebSocket);
 };

@@ -259,17 +259,86 @@ void WebSocket::OnBufferedAmountUpdate(uint32_t buffered_amount) {
 }
 
 void WebSocket::OnDataFrame(bool fin,
-  net::WebSocketFrameHeader::OpCodeEnum type,
-  scoped_refptr<net::IOBuffer> buffer,
-  size_t buffer_size) {
+  net::WebSocketFrameHeader::OpCodeEnum frame_op_code,
+  scoped_refptr<net::IOBuffer> frame_buffer,
+  size_t frame_size) {
+  
+  // Ignore empty frames.
+  if (!frame_buffer || !frame_buffer->data() || !frame_size) {
+    return;
+  }
+
+  if (!fin) {
+    // Push only non-terminating frames.
+    pending_frames_.push_back(WebSocketFrame(frame_buffer, 
+      frame_size, frame_op_code, fin));
+    return;
+  }
+
+  // We need to concatenate all frames of a message as the API is 
+  // message-oriented and not frame-oriented.
+  // For text message, that will also properly handle multi-bytes UTF-8 
+  // characters as they can be potentially split on frame boundaries.
+
+  auto message_op_code = frame_op_code;
+  auto message = frame_buffer;
+  auto message_size = frame_size;
+  if (!pending_frames_.empty()) {
+    // Set the message type as the op code of the first frame.
+    message_op_code = pending_frames_.front().op_code_;
+
+    // Compute to total message size in bytes.
+    for (const auto& frame : pending_frames_) {
+      message_size += frame.size_;
+    }
+
+    // Allocate a large enough buffer to hold all message data.
+    message = new net::IOBuffer(message_size);
+
+    // Copy frames' data starting from oldest frame.
+    auto cursor = message->data();
+    for (const auto& frame : pending_frames_) {
+      memcpy(cursor, frame.buffer_->data(), frame.size_);
+      cursor += frame.size_;
+    }
+
+    // The current frame is the last one.
+    memcpy(cursor, frame_buffer->data(), frame_size);
+  }
 
   v8::HandleScope handle_scope(isolate());
-  auto data = node::Buffer::Copy(isolate(),
-    buffer->data(),
-    buffer_size).ToLocalChecked();
+  // Do the V8 conversions.
+  // Text message are converted into JavaScript strings.
+  // Binary message are converted into either Node.js Buffer(s) or 
+  // ES6 ArrayBuffer depending on the current value of binaryType property.
 
-  // TODO: implement conversion to ArrayBuffer if needed.
+  using net::WebSocketFrameHeader;
+  v8::Local<v8::Value> data;
+
+  if (message_op_code == WebSocketFrameHeader::OpCodeEnum::kOpCodeText) {
+    data = v8::String::NewFromUtf8(isolate(),
+      message->data(),
+      v8::NewStringType::kNormal,
+      message_size).ToLocalChecked();
+    mate::EmitEvent(isolate(), GetWrapper(), "message", data);
+    return;
+  }
+
+  if (message_op_code == WebSocketFrameHeader::OpCodeEnum::kOpCodeBinary) {
+    if (binary_type_ == BinaryType::NODE_BUFFER) {
+      data = node::Buffer::Copy(isolate(),
+        message->data(),
+        message_size).ToLocalChecked();
+    }
+    else {
+      data = v8::ArrayBuffer::New(isolate(),
+        message->data(),
+        message_size,
+        v8::ArrayBufferCreationMode::kInternalized);
+    }
+  }
   mate::EmitEvent(isolate(), GetWrapper(), "message", data);
+  return;
 }
 
 void WebSocket::OnClosingHandshake() {

@@ -253,6 +253,7 @@
       'atom/browser/net/atom_url_request_job_factory.h',
       'atom/browser/net/atom_websocket_channel.h',
       'atom/browser/net/atom_websocket_channel.cc',
+      'atom/browser/net/atom_websocket_frame.h',
       'atom/browser/net/http_protocol_handler.cc',
       'atom/browser/net/http_protocol_handler.h',
       'atom/browser/net/js_asker.cc',

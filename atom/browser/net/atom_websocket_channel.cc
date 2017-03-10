@@ -244,7 +244,9 @@ void AtomWebSocketChannel::DoSend(
 
   buffered_amount_ += buffer->size();
   pending_frames_.push_back(std::make_unique<WebSocketFrame>(buffer,
-    op_code, is_last));
+    buffer->size(),
+    op_code,
+    is_last));
   DoProcessPendingFrames();
 }
 
@@ -267,7 +269,7 @@ void AtomWebSocketChannel::DoProcessPendingFrames() {
   auto buffer = frame->buffer_;
   auto op_code = frame->op_code_;
   auto fin = frame->fin_;
-  auto buffer_size = buffer->size();
+  auto buffer_size = static_cast<int64_t>(frame->size_);
 
   // Split the frame if its size is greater than the send quota.
   if (buffer_size > send_quota_) {
@@ -287,22 +289,23 @@ void AtomWebSocketChannel::DoProcessPendingFrames() {
     // fin flag.
     auto remaining_size = buffer_size - send_quota;
     scoped_refptr<net::IOBufferWithSize> remaining_buffer =
-      new net::IOBufferWithSize(remaining_size);
+      new net::IOBufferWithSize(static_cast<size_t>(remaining_size));
     memcpy(remaining_buffer->data(), buffer->data() + send_quota_,
       remaining_size);
 
     pending_frames_.push_front(std::make_unique<WebSocketFrame>(
-      remaining_buffer, op_code, frame->fin_));
+      remaining_buffer, remaining_size, op_code, frame->fin_));
 
     buffer = splitted_buffer;
+    buffer_size = send_quota;
   }
 
-  send_quota_ -= buffer->size();
-  buffered_amount_ -= buffer->size();
+  send_quota_ -= buffer_size;
+  buffered_amount_ -= buffer_size;
   auto channel_state = websocket_channel_->SendFrame(fin,
     op_code,
     buffer,
-    buffer->size());
+    buffer_size);
 }
 
 void AtomWebSocketChannel::DoSendFlowControl() {
