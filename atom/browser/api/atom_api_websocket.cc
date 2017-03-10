@@ -172,7 +172,7 @@ void WebSocket::BuildPrototype(v8::Isolate* isolate,
     // Request API
     .SetMethod("_send", &WebSocket::Send)
     .SetMethod("_close", &WebSocket::Close)
-    .SetProperty("binaryType", &WebSocket::GetBinaryType, 
+    .SetProperty("_binaryType", &WebSocket::GetBinaryType, 
       &WebSocket::SetBinaryType)
     .SetProperty("bufferedAmount", &WebSocket::BufferedAmount)
     .SetProperty("extensions", &WebSocket::Extensions)
