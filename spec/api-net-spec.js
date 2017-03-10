@@ -5,6 +5,7 @@ const http = require('http')
 const url = require('url')
 const {net} = remote
 const {session} = remote
+var WebSocketServer = require('ws').Server;
 
 function randomBuffer (size, start, end) {
   start = start || 0
@@ -1395,6 +1396,50 @@ describe('net module', function () {
         })
         urlRequest.end()
       `)
+    })
+  })
+
+  describe.only('WebSocket basics', function() {
+    let server = null;
+    beforeEach(function (done) {
+      const httpServer = http.createServer()
+      httpServer.listen(0, '127.0.0.1', function () {
+        server.url = 'ws://127.0.0.1:' + httpServer.address().port
+        done()
+      })
+      server = new WebSocketServer({ server: httpServer });
+    })
+
+    afterEach(function () {
+      server.close(function () {
+      })
+      server = null
+    })
+
+    it.only('should be able to open a connection, send and receive a text message', function(done) {
+      const connectionUrl = '/connectionUrl'
+      const helloMessage = 'Hello!!!'
+      server.on('connection', function (serverConnection) {
+        serverConnection.on('message', function (message) {
+          serverConnection.send(message)
+          assert.equal(message, helloMessage)
+        })
+      })
+
+      const clientConnection = new net.WebSocket(`${server.url}${connectionUrl}`)
+      clientConnection.on('open', () => {
+        clientConnection.send(helloMessage);
+      });
+      clientConnection.on('close', () => {
+        done()
+      });
+      clientConnection.on('error', () => {
+        assert(false)
+      });
+      clientConnection.on('message', (message) => {
+        assert.equal(message, helloMessage)
+        clientConnection.close()
+      });
     })
   })
 })
