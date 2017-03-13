@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 
 #include "atom/browser/api/atom_api_websocket.h"
+#include <map>
+#include <vector>
 #include "atom/browser/api/atom_api_session.h"
 #include "atom/browser/net/atom_websocket_channel.h"
 #include "atom/common/api/event_emitter_caller.h"
@@ -63,9 +65,8 @@ mate::WrappableBase* WebSocket::New(mate::Arguments* args) {
   auto next = args->PeekNext();
   if (next.IsEmpty()) {
     // JS code: ws = new WebSocket('ws://blabla.com')
-    return NewInternal(args->isolate(), args->GetThis(), std::move(session),
-                       std::move(url), std::move(protocols), std::move(origin),
-                       std::move(additional_headers));
+    return NewInternal(args->isolate(), args->GetThis(), session, url,
+                       protocols, origin, additional_headers);
   }
 
   if (next->IsString()) {
@@ -133,17 +134,16 @@ mate::WrappableBase* WebSocket::New(mate::Arguments* args) {
 mate::WrappableBase* WebSocket::NewInternal(
     v8::Isolate* isolate,
     v8::Local<v8::Object> wrapper,
-    std::string&& sessionName,
-    GURL&& url,
-    std::vector<std::string>&& protocols,
-    GURL&& origin,
-    std::string&& additional_headers) {
+    const std::string& sessionName,
+    const GURL& url,
+    const std::vector<std::string>& protocols,
+    const GURL& origin,
+    const std::string& additional_headers) {
   auto session = Session::FromPartition(isolate, sessionName);
   auto browser_context = session->browser_context();
   auto websocket = new WebSocket(isolate, wrapper, url);
   websocket->atom_websocket_channel_ = AtomWebSocketChannel::Create(
-      browser_context, std::move(url), std::move(protocols), std::move(origin),
-      std::move(additional_headers), websocket);
+      browser_context, url, protocols, origin, additional_headers, websocket);
   websocket->Pin();
   return websocket;
 }
@@ -189,7 +189,7 @@ const char* WebSocket::GetBinaryType() const {
     return "nodebuffer";
   } else {
     return "arraybuffer";
-  };
+  }
 }
 
 void WebSocket::SetBinaryType(const std::string& binary_type) {

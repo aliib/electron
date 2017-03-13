@@ -6,6 +6,7 @@
 #ifndef ATOM_BROWSER_NET_ATOM_WEBSOCKET_CHANNEL_H_
 #define ATOM_BROWSER_NET_ATOM_WEBSOCKET_CHANNEL_H_
 
+#include <deque>
 #include <memory>
 #include <string>
 #include <vector>
@@ -40,10 +41,10 @@ class AtomWebSocketChannel
  public:
   static scoped_refptr<AtomWebSocketChannel> Create(
       AtomBrowserContext* browser_context,
-      GURL&& url,
-      std::vector<std::string>&& protocols,
-      GURL&& origin,
-      std::string&& additional_headers,
+      const GURL& url,
+      const std::vector<std::string>& protocols,
+      const GURL& origin,
+      const std::string& additional_headers,
       api::WebSocket* delegate);
   void Terminate();
 
@@ -54,7 +55,7 @@ class AtomWebSocketChannel
 
  private:
   friend class base::RefCountedThreadSafe<AtomWebSocketChannel>;
-  AtomWebSocketChannel(api::WebSocket* delegate);
+  explicit AtomWebSocketChannel(api::WebSocket* delegate);
   ~AtomWebSocketChannel();
 
   void DoInitialize(scoped_refptr<net::URLRequestContextGetter>,

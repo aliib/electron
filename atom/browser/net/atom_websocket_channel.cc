@@ -19,7 +19,7 @@ class WebSocketEventHandler : public net::WebSocketEventInterface {
  public:
   explicit WebSocketEventHandler(AtomWebSocketChannel* owner) : owner_(owner) {}
 
-  virtual ~WebSocketEventHandler() override {}
+  virtual ~WebSocketEventHandler() {}
 
   virtual void OnCreateURLRequest(net::URLRequest* request) {}
 
@@ -32,7 +32,7 @@ class WebSocketEventHandler : public net::WebSocketEventInterface {
         base::Bind(&AtomWebSocketChannel::OnAddChannelResponse, owner_,
                    selected_subprotocol, extensions));
     return ChannelState::CHANNEL_ALIVE;
-  };
+  }
 
   virtual ChannelState OnDataFrame(bool fin,
                                    WebSocketMessageType type,
@@ -53,7 +53,7 @@ class WebSocketEventHandler : public net::WebSocketEventInterface {
         base::Bind(&AtomWebSocketChannel::DoSendFlowControl, owner_));
 
     return ChannelState::CHANNEL_ALIVE;
-  };
+  }
 
   virtual ChannelState OnFlowControl(int64_t quota) {
     DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
@@ -132,10 +132,10 @@ class WebSocketEventHandler : public net::WebSocketEventInterface {
 
 scoped_refptr<AtomWebSocketChannel> AtomWebSocketChannel::Create(
     AtomBrowserContext* browser_context,
-    GURL&& url,
-    std::vector<std::string>&& protocols,
-    GURL&& origin,
-    std::string&& additional_headers,
+    const GURL& url,
+    const std::vector<std::string>& protocols,
+    const GURL& origin,
+    const std::string& additional_headers,
     api::WebSocket* delegate) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 

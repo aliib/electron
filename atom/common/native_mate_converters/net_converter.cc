@@ -119,8 +119,8 @@ bool Converter<net::WebSocketFrameHeader::OpCodeEnum>::FromV8(
     v8::Isolate* isolate,
     v8::Local<v8::Value> val,
     net::WebSocketFrameHeader::OpCodeEnum* out) {
-  unsigned long value = 0;
-  auto result = Converter<unsigned long>::FromV8(isolate, val, &value);
+  uint32_t value = 0;
+  auto result = Converter<uint32_t>::FromV8(isolate, val, &value);
   if (result && out) {
     *out = static_cast<net::WebSocketFrameHeader::OpCodeEnum>(value);
   }

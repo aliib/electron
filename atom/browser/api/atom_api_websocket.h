@@ -5,11 +5,12 @@
 #ifndef ATOM_BROWSER_API_ATOM_API_WEBSOCKET_H_
 #define ATOM_BROWSER_API_ATOM_API_WEBSOCKET_H_
 
-#include <base/macros.h>
 #include <queue>
 #include <string>
+#include <vector>
 #include "atom/browser/api/event_emitter.h"
 #include "atom/browser/net/atom_websocket_frame.h"
+#include "base/macros.h"
 #include "net/websockets/websocket_frame.h"
 #include "url/gurl.h"
 
@@ -55,17 +56,18 @@ class WebSocket : public mate::EventEmitter<WebSocket> {
 
   friend struct mate::Converter<atom::api::WebSocket::State>;
 
-  static mate::WrappableBase* NewInternal(v8::Isolate* isolate,
-                                          v8::Local<v8::Object> wrapper,
-                                          std::string&& sessionName,
-                                          GURL&& url,
-                                          std::vector<std::string>&& protocols,
-                                          GURL&& origin,
-                                          std::string&& additional_headers);
+  static mate::WrappableBase* NewInternal(
+      v8::Isolate* isolate,
+      v8::Local<v8::Object> wrapper,
+      const std::string& sessionName,
+      const GURL& url,
+      const std::vector<std::string>& protocols,
+      const GURL& origin,
+      const std::string& additional_headers);
   explicit WebSocket(v8::Isolate* isolate,
                      v8::Local<v8::Object> wrapper,
                      const GURL& url);
-  virtual ~WebSocket() override;
+  virtual ~WebSocket();
 
   void Send(scoped_refptr<net::IOBufferWithSize> buffer,
             net::WebSocketFrameHeader::OpCodeEnum op_code,

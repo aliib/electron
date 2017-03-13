@@ -61,4 +61,4 @@ bool Converter<scoped_refptr<net::IOBufferWithSize>>::FromV8(
   return true;
 }
 
-}  // namespace atom
+}  // namespace mate
