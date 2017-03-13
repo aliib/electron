@@ -24,19 +24,20 @@ struct CertPrincipal;
 
 namespace mate {
 
-template<>
+template <>
 struct Converter<const net::AuthChallengeInfo*> {
   static v8::Local<v8::Value> ToV8(v8::Isolate* isolate,
                                    const net::AuthChallengeInfo* val);
 };
 
-template<>
+template <>
 struct Converter<scoped_refptr<net::X509Certificate>> {
-  static v8::Local<v8::Value> ToV8(v8::Isolate* isolate,
+  static v8::Local<v8::Value> ToV8(
+      v8::Isolate* isolate,
       const scoped_refptr<net::X509Certificate>& val);
 };
 
-template<>
+template <>
 struct Converter<net::CertPrincipal> {
   static v8::Local<v8::Value> ToV8(v8::Isolate* isolate,
                                    const net::CertPrincipal& val);
@@ -51,8 +52,8 @@ struct Converter<net::HttpResponseHeaders*> {
 template <>
 struct Converter<net::WebSocketFrameHeader::OpCodeEnum> {
   static bool FromV8(v8::Isolate* isolate,
-    v8::Local<v8::Value> val,
-    net::WebSocketFrameHeader::OpCodeEnum* out);
+                     v8::Local<v8::Value> val,
+                     net::WebSocketFrameHeader::OpCodeEnum* out);
 };
 
 }  // namespace mate

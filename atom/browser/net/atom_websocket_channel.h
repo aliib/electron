@@ -7,8 +7,8 @@
 #define ATOM_BROWSER_NET_ATOM_WEBSOCKET_CHANNEL_H_
 
 #include <memory>
-#include <vector>
 #include <string>
+#include <vector>
 #include "atom/browser/net/atom_websocket_frame.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
@@ -31,64 +31,61 @@ namespace atom {
 
 namespace api {
 class WebSocket;
-} // namespace api
+}  // namespace api
 
 class AtomBrowserContext;
 
-class AtomWebSocketChannel :
-  public base::RefCountedThreadSafe<AtomWebSocketChannel> {
-
-public:
+class AtomWebSocketChannel
+    : public base::RefCountedThreadSafe<AtomWebSocketChannel> {
+ public:
   static scoped_refptr<AtomWebSocketChannel> Create(
-    AtomBrowserContext* browser_context,
-    GURL&& url,
-    std::vector<std::string>&& protocols,
-    GURL&& origin,
-    std::string&& additional_headers,
-    api::WebSocket* delegate);
+      AtomBrowserContext* browser_context,
+      GURL&& url,
+      std::vector<std::string>&& protocols,
+      GURL&& origin,
+      std::string&& additional_headers,
+      api::WebSocket* delegate);
   void Terminate();
 
   void Send(scoped_refptr<net::IOBufferWithSize> buffer,
-    net::WebSocketFrameHeader::OpCodeEnum op_code, bool is_last);
+            net::WebSocketFrameHeader::OpCodeEnum op_code,
+            bool is_last);
   void Close(uint16_t code, const std::string& reason);
 
-
-private:
+ private:
   friend class base::RefCountedThreadSafe<AtomWebSocketChannel>;
   AtomWebSocketChannel(api::WebSocket* delegate);
   ~AtomWebSocketChannel();
 
   void DoInitialize(scoped_refptr<net::URLRequestContextGetter>,
-    const GURL& url,
-    const std::vector<std::string>& protocols,
-    const GURL& origin,
-    const std::string& additional_headers);
+                    const GURL& url,
+                    const std::vector<std::string>& protocols,
+                    const GURL& origin,
+                    const std::string& additional_headers);
   void DoTerminate();
 
   void DoSend(scoped_refptr<net::IOBufferWithSize> buffer,
-    net::WebSocketFrameHeader::OpCodeEnum op_code, bool is_last);
+              net::WebSocketFrameHeader::OpCodeEnum op_code,
+              bool is_last);
   void DoProcessPendingFrames();
   void DoSendFlowControl();
   void DoClose(uint16_t code, const std::string& reason);
 
-  
   void OnStartOpeningHandshake(
-    std::unique_ptr<net::WebSocketHandshakeRequestInfo> request);
+      std::unique_ptr<net::WebSocketHandshakeRequestInfo> request);
   void OnFinishOpeningHandshake(
-    std::unique_ptr<net::WebSocketHandshakeResponseInfo> response);
-  void OnAddChannelResponse(
-    const std::string& selected_subprotocol,
-    const std::string& extensions);
+      std::unique_ptr<net::WebSocketHandshakeResponseInfo> response);
+  void OnAddChannelResponse(const std::string& selected_subprotocol,
+                            const std::string& extensions);
   void OnBufferedAmountUpdate(uint32_t buffered_amount);
   void OnDataFrame(bool fin,
-    net::WebSocketFrameHeader::OpCodeEnum type,
-    scoped_refptr<net::IOBuffer> buffer,
-    size_t buffer_size);
+                   net::WebSocketFrameHeader::OpCodeEnum type,
+                   scoped_refptr<net::IOBuffer> buffer,
+                   size_t buffer_size);
   void OnFlowControl(int64_t quota);
   void OnClosingHandshake();
   void OnDropChannel(bool was_clean, uint16_t code, const std::string& reason);
   void OnFailChannel(const std::string& message);
-
 
   api::WebSocket* delegate_;
   std::unique_ptr<net::WebSocketChannel> websocket_channel_;
@@ -100,7 +97,6 @@ private:
 
   DISALLOW_COPY_AND_ASSIGN(AtomWebSocketChannel);
 };
-
 
 }  // namespace atom
 

@@ -28,7 +28,8 @@ namespace mate {
 
 // static
 v8::Local<v8::Value> Converter<const net::AuthChallengeInfo*>::ToV8(
-    v8::Isolate* isolate, const net::AuthChallengeInfo* val) {
+    v8::Isolate* isolate,
+    const net::AuthChallengeInfo* val) {
   mate::Dictionary dict = mate::Dictionary::CreateEmpty(isolate);
   dict.Set("isProxy", val->is_proxy);
   dict.Set("scheme", val->scheme);
@@ -40,11 +41,11 @@ v8::Local<v8::Value> Converter<const net::AuthChallengeInfo*>::ToV8(
 
 // static
 v8::Local<v8::Value> Converter<scoped_refptr<net::X509Certificate>>::ToV8(
-    v8::Isolate* isolate, const scoped_refptr<net::X509Certificate>& val) {
+    v8::Isolate* isolate,
+    const scoped_refptr<net::X509Certificate>& val) {
   mate::Dictionary dict(isolate, v8::Object::New(isolate));
   std::string encoded_data;
-  net::X509Certificate::GetPEMEncoded(
-      val->os_cert_handle(), &encoded_data);
+  net::X509Certificate::GetPEMEncoded(val->os_cert_handle(), &encoded_data);
 
   dict.Set("data", encoded_data);
   dict.Set("issuer", val->issuer());
@@ -56,8 +57,8 @@ v8::Local<v8::Value> Converter<scoped_refptr<net::X509Certificate>>::ToV8(
   dict.Set("validStart", val->valid_start().ToDoubleT());
   dict.Set("validExpiry", val->valid_expiry().ToDoubleT());
   dict.Set("fingerprint",
-           net::HashValue(
-              val->CalculateFingerprint256(val->os_cert_handle())).ToString());
+           net::HashValue(val->CalculateFingerprint256(val->os_cert_handle()))
+               .ToString());
 
   if (!val->GetIntermediateCertificates().empty()) {
     net::X509Certificate::OSCertHandles issuer_intermediates(
@@ -65,8 +66,7 @@ v8::Local<v8::Value> Converter<scoped_refptr<net::X509Certificate>>::ToV8(
         val->GetIntermediateCertificates().end());
     const scoped_refptr<net::X509Certificate>& issuer_cert =
         net::X509Certificate::CreateFromHandle(
-            val->GetIntermediateCertificates().front(),
-            issuer_intermediates);
+            val->GetIntermediateCertificates().front(), issuer_intermediates);
     dict.Set("issuerCert", issuer_cert);
   }
 
@@ -75,7 +75,8 @@ v8::Local<v8::Value> Converter<scoped_refptr<net::X509Certificate>>::ToV8(
 
 // static
 v8::Local<v8::Value> Converter<net::CertPrincipal>::ToV8(
-    v8::Isolate* isolate, const net::CertPrincipal& val) {
+    v8::Isolate* isolate,
+    const net::CertPrincipal& val) {
   mate::Dictionary dict(isolate, v8::Object::New(isolate));
 
   dict.Set("commonName", val.common_name);
@@ -115,17 +116,16 @@ v8::Local<v8::Value> Converter<net::HttpResponseHeaders*>::ToV8(
 
 // static
 bool Converter<net::WebSocketFrameHeader::OpCodeEnum>::FromV8(
-  v8::Isolate* isolate,
-  v8::Local<v8::Value> val,
-  net::WebSocketFrameHeader::OpCodeEnum* out) {
-    unsigned long value = 0;
-    auto result = Converter<unsigned long>::FromV8(isolate, val, &value);
-    if (result && out) {
-      *out = static_cast<net::WebSocketFrameHeader::OpCodeEnum>(value);
-    }
-    return result;
+    v8::Isolate* isolate,
+    v8::Local<v8::Value> val,
+    net::WebSocketFrameHeader::OpCodeEnum* out) {
+  unsigned long value = 0;
+  auto result = Converter<unsigned long>::FromV8(isolate, val, &value);
+  if (result && out) {
+    *out = static_cast<net::WebSocketFrameHeader::OpCodeEnum>(value);
+  }
+  return result;
 }
-
 
 }  // namespace mate
 
@@ -135,7 +135,8 @@ void FillRequestDetails(base::DictionaryValue* details,
                         const net::URLRequest* request) {
   details->SetString("method", request->method());
   std::string url;
-  if (!request->url_chain().empty()) url = request->url().spec();
+  if (!request->url_chain().empty())
+    url = request->url().spec();
   details->SetStringWithoutPathExpansion("url", url);
   details->SetString("referrer", request->referrer());
   std::unique_ptr<base::ListValue> list(new base::ListValue);
@@ -162,8 +163,7 @@ void GetUploadData(base::ListValue* upload_data_list,
                                                     bytes_reader->length()));
       upload_data_dict->Set("bytes", std::move(bytes));
     } else if (reader->AsFileReader()) {
-      const net::UploadFileElementReader* file_reader =
-          reader->AsFileReader();
+      const net::UploadFileElementReader* file_reader = reader->AsFileReader();
       auto file_path = file_reader->path().AsUTF8Unsafe();
       upload_data_dict->SetStringWithoutPathExpansion("file", file_path);
     } else {

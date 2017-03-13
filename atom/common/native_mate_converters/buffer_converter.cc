@@ -6,44 +6,38 @@
 #include "atom/common/node_includes.h"
 #include "net/base/io_buffer.h"
 
-
 namespace mate {
 
-v8::Local<v8::Value> 
+v8::Local<v8::Value>
 Converter<scoped_refptr<const net::IOBufferWithSize>>::ToV8(
-  v8::Isolate* isolate,
-  scoped_refptr<const net::IOBufferWithSize> buffer) {
-    return node::Buffer::Copy(isolate, buffer->data(), buffer->size())
+    v8::Isolate* isolate,
+    scoped_refptr<const net::IOBufferWithSize> buffer) {
+  return node::Buffer::Copy(isolate, buffer->data(), buffer->size())
       .ToLocalChecked();
 }
 
 bool Converter<scoped_refptr<const net::IOBufferWithSize>>::FromV8(
-  v8::Isolate* isolate,
-  v8::Local<v8::Value> val,
-  scoped_refptr<const net::IOBufferWithSize>* out) {
-
+    v8::Isolate* isolate,
+    v8::Local<v8::Value> val,
+    scoped_refptr<const net::IOBufferWithSize>* out) {
   scoped_refptr<net::IOBufferWithSize> tmp;
   auto result = Converter<scoped_refptr<net::IOBufferWithSize>>::FromV8(
-    isolate,
-    val,
-    &tmp);
+      isolate, val, &tmp);
   *out = tmp;
   return result;
-
 }
 
-v8::Local<v8::Value>
-Converter<scoped_refptr<net::IOBufferWithSize>>::ToV8(
-  v8::Isolate* isolate,
-  scoped_refptr<net::IOBufferWithSize> buffer) {
+v8::Local<v8::Value> Converter<scoped_refptr<net::IOBufferWithSize>>::ToV8(
+    v8::Isolate* isolate,
+    scoped_refptr<net::IOBufferWithSize> buffer) {
   return Converter<scoped_refptr<const net::IOBufferWithSize>>::ToV8(isolate,
-    buffer);
+                                                                     buffer);
 }
 
 bool Converter<scoped_refptr<net::IOBufferWithSize>>::FromV8(
-  v8::Isolate* isolate,
-  v8::Local<v8::Value> val,
-  scoped_refptr<net::IOBufferWithSize>* out) {
+    v8::Isolate* isolate,
+    v8::Local<v8::Value> val,
+    scoped_refptr<net::IOBufferWithSize>* out) {
   auto size = node::Buffer::Length(val);
 
   if (size == 0) {

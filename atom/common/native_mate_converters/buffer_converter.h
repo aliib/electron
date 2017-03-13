@@ -13,20 +13,23 @@ namespace mate {
 
 template <>
 struct Converter<scoped_refptr<const net::IOBufferWithSize>> {
-  static v8::Local<v8::Value> ToV8(v8::Isolate* isolate,
-    scoped_refptr<const net::IOBufferWithSize> buffer);
+  static v8::Local<v8::Value> ToV8(
+      v8::Isolate* isolate,
+      scoped_refptr<const net::IOBufferWithSize> buffer);
 
-  static bool FromV8(v8::Isolate* isolate, v8::Local<v8::Value> val,
-    scoped_refptr<const net::IOBufferWithSize>* out);
+  static bool FromV8(v8::Isolate* isolate,
+                     v8::Local<v8::Value> val,
+                     scoped_refptr<const net::IOBufferWithSize>* out);
 };
 
 template <>
 struct Converter<scoped_refptr<net::IOBufferWithSize>> {
   static v8::Local<v8::Value> ToV8(v8::Isolate* isolate,
-    scoped_refptr<net::IOBufferWithSize> buffer);
+                                   scoped_refptr<net::IOBufferWithSize> buffer);
 
-  static bool FromV8(v8::Isolate* isolate, v8::Local<v8::Value> val,
-    scoped_refptr<net::IOBufferWithSize>* out);
+  static bool FromV8(v8::Isolate* isolate,
+                     v8::Local<v8::Value> val,
+                     scoped_refptr<net::IOBufferWithSize>* out);
 };
 
 }  // namespace mate
