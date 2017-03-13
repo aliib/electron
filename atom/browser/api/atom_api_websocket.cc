@@ -3,8 +3,10 @@
 // found in the LICENSE file.
 
 #include "atom/browser/api/atom_api_websocket.h"
+
 #include <map>
 #include <vector>
+
 #include "atom/browser/api/atom_api_session.h"
 #include "atom/browser/net/atom_websocket_channel.h"
 #include "atom/common/api/event_emitter_caller.h"
