@@ -28,6 +28,7 @@ public:
   virtual ~WebSocketEventHandler() override {
   }
 
+
   virtual void OnCreateURLRequest(net::URLRequest* request) {
   }
 
@@ -140,6 +141,8 @@ public:
 private:
   AtomWebSocketChannel* owner_;
 
+  WebSocketEventHandler(const WebSocketEventHandler&) = delete;
+  WebSocketEventHandler& operator=(const WebSocketEventHandler&) = delete;
 };
 
 scoped_refptr<AtomWebSocketChannel> AtomWebSocketChannel::Create(
@@ -187,6 +190,16 @@ AtomWebSocketChannel::AtomWebSocketChannel(api::WebSocket* delegate)
 AtomWebSocketChannel::~AtomWebSocketChannel() {
 }
 
+
+void AtomWebSocketChannel::Terminate() {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  delegate_ = nullptr;
+  content::BrowserThread::PostTask(
+    content::BrowserThread::IO, FROM_HERE,
+    base::Bind(&AtomWebSocketChannel::DoTerminate, this));
+}
+
+
 void AtomWebSocketChannel::DoInitialize(
   scoped_refptr<net::URLRequestContextGetter> request_context_getter,
   const GURL& url,
@@ -219,6 +232,8 @@ void AtomWebSocketChannel::DoInitialize(
 }
 
 void AtomWebSocketChannel::DoTerminate() {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
+  websocket_channel_.reset();
 }
 
 void AtomWebSocketChannel::Send(
@@ -321,13 +336,17 @@ void AtomWebSocketChannel::DoClose(uint16_t code, const std::string& reason) {
 void AtomWebSocketChannel::OnStartOpeningHandshake(
   std::unique_ptr<net::WebSocketHandshakeRequestInfo> request) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  delegate_->OnStartOpeningHandshake(std::move(request));
+  if (delegate_) {
+    delegate_->OnStartOpeningHandshake(std::move(request));
+  }
 }
 
 void AtomWebSocketChannel::OnFinishOpeningHandshake(
   std::unique_ptr<net::WebSocketHandshakeResponseInfo> response) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  delegate_->OnFinishOpeningHandshake(std::move(response));
+  if (delegate_) {
+    delegate_->OnFinishOpeningHandshake(std::move(response));
+  }
 }
 
 
@@ -335,7 +354,9 @@ void AtomWebSocketChannel::OnAddChannelResponse(
   const std::string& selected_subprotocol,
   const std::string& extensions) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  delegate_->OnAddChannelResponse(selected_subprotocol, extensions);
+  if (delegate_) {
+    delegate_->OnAddChannelResponse(selected_subprotocol, extensions);
+  }
 }
 
 
@@ -344,12 +365,16 @@ void AtomWebSocketChannel::OnDataFrame(bool fin,
   scoped_refptr<net::IOBuffer> buffer,
   size_t buffer_size) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  delegate_->OnDataFrame(fin, type, buffer, buffer_size);
+  if (delegate_) {
+    delegate_->OnDataFrame(fin, type, buffer, buffer_size);
+  }
 }
 
 void AtomWebSocketChannel::OnBufferedAmountUpdate(uint32_t buffered_amount) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  delegate_->OnBufferedAmountUpdate(buffered_amount);
+  if (delegate_) {
+    delegate_->OnBufferedAmountUpdate(buffered_amount);
+  }
 }
 
 void AtomWebSocketChannel::OnFlowControl(int64_t quota) {
@@ -361,16 +386,24 @@ void AtomWebSocketChannel::OnFlowControl(int64_t quota) {
 
 void AtomWebSocketChannel::OnClosingHandshake() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  if (delegate_) {
+    delegate_->OnClosingHandshake();
+  }
 }
 
 void AtomWebSocketChannel::OnDropChannel(bool was_clean, uint16_t code,
   const std::string& reason) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  delegate_->OnDropChannel(was_clean, code, reason);
+  if (delegate_) {
+    delegate_->OnDropChannel(was_clean, code, reason);
+  }
 }
 
 void AtomWebSocketChannel::OnFailChannel(const std::string& message) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  if (delegate_) {
+    delegate_->OnFailChannel(message);
+  }
 }
 
 

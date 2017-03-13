@@ -46,14 +46,14 @@ public:
     GURL&& origin,
     std::string&& additional_headers,
     api::WebSocket* delegate);
+  void Terminate();
 
   void Send(scoped_refptr<net::IOBufferWithSize> buffer,
     net::WebSocketFrameHeader::OpCodeEnum op_code, bool is_last);
   void Close(uint16_t code, const std::string& reason);
 
+
 private:
-
-
   friend class base::RefCountedThreadSafe<AtomWebSocketChannel>;
   AtomWebSocketChannel(api::WebSocket* delegate);
   ~AtomWebSocketChannel();

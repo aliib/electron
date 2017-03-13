@@ -185,14 +185,20 @@ void WebSocket::BuildPrototype(v8::Isolate* isolate,
 void WebSocket::Send(scoped_refptr<net::IOBufferWithSize> buffer,
   net::WebSocketFrameHeader::OpCodeEnum op_code,
   bool is_last) {
-  atom_websocket_channel_->Send(buffer, op_code, is_last);
+  DCHECK(atom_websocket_channel_);
+  if (atom_websocket_channel_) {
+    atom_websocket_channel_->Send(buffer, op_code, is_last);
+  }
 }
 
 void WebSocket::Close(uint32_t code, const std::string& reason) {
   if (state_ != State::CLOSED) {
+    // Move to at least CLOSING state. Never come back from the CLOSED state.
     state_ = State::CLOSING;
   }
-  atom_websocket_channel_->Close(static_cast<uint16_t>(code), reason);
+  if (atom_websocket_channel_) {
+    atom_websocket_channel_->Close(static_cast<uint16_t>(code), reason);
+  }
 }
 
 const char* WebSocket::GetBinaryType() const {
@@ -242,9 +248,12 @@ void WebSocket::OnStartOpeningHandshake(
 void WebSocket::OnFinishOpeningHandshake(
   std::unique_ptr<net::WebSocketHandshakeResponseInfo> response) {
   handshake_response_info_ = std::move(response);
-  state_ = State::OPEN;
-  v8::HandleScope handle_scope(isolate());
-  mate::EmitEvent(isolate(), GetWrapper(), "open");
+  if (state_ == State::CONNECTING) {
+    // Enforce the one-time transition from CONNECTING to OPEN.
+    state_ = State::OPEN;
+    v8::HandleScope handle_scope(isolate());
+    mate::EmitEvent(isolate(), GetWrapper(), "open");
+  }
 }
 
 void WebSocket::OnAddChannelResponse(
@@ -262,7 +271,12 @@ void WebSocket::OnDataFrame(bool fin,
   net::WebSocketFrameHeader::OpCodeEnum frame_op_code,
   scoped_refptr<net::IOBuffer> frame_buffer,
   size_t frame_size) {
-  
+
+  if (state_ == State::CLOSED) {
+    // Never emit 'message' events after the 'close' event.
+    return;
+  }
+
   // Ignore empty frames.
   if (!frame_buffer || !frame_buffer->data() || !frame_size) {
     return;
@@ -292,25 +306,25 @@ void WebSocket::OnDataFrame(bool fin,
       message_size += frame.size_;
     }
 
-    // Allocate a large enough buffer to hold all message data.
+    //  Allocate a large enough buffer to hold all message data.
     message = new net::IOBuffer(message_size);
 
-    // Copy frames' data starting from oldest frame.
+    //  Copy frames' data starting from oldest frame.
     auto cursor = message->data();
     for (const auto& frame : pending_frames_) {
       memcpy(cursor, frame.buffer_->data(), frame.size_);
       cursor += frame.size_;
     }
 
-    // The current frame is the last one.
+    //  The current frame is the last one.
     memcpy(cursor, frame_buffer->data(), frame_size);
   }
 
   v8::HandleScope handle_scope(isolate());
-  // Do the V8 conversions.
-  // Text message are converted into JavaScript strings.
-  // Binary message are converted into either Node.js Buffer(s) or 
-  // ES6 ArrayBuffer depending on the current value of binaryType property.
+  //  Do the V8 conversions.
+  //  Text message are converted into JavaScript strings.
+  //  Binary message are converted into either Node.js Buffer(s) or 
+  //  ES6 ArrayBuffer depending on the current value of binaryType property.
 
   using net::WebSocketFrameHeader;
   v8::Local<v8::Value> data;
@@ -346,18 +360,29 @@ void WebSocket::OnClosingHandshake() {
 
 void WebSocket::OnDropChannel(bool was_clean, uint32_t code,
   const std::string& reason) {
-  state_ = State::CLOSED;
-  v8::HandleScope handle_scope(isolate());
-  mate::EmitEvent(isolate(), GetWrapper(), "close", code, reason);
+  if (state_ != State::CLOSED) {
+    //  The 'close' event is emitted once as the last event of the WebSocket 
+    //  object.
+    state_ = State::CLOSED;
+    v8::HandleScope handle_scope(isolate());
+    mate::EmitEvent(isolate(), GetWrapper(), "close", code, reason, was_clean);
+    Unpin();
+    atom_websocket_channel_ = nullptr;
+  }
 }
 
 void WebSocket::OnFailChannel(const std::string& message) {
-  v8::HandleScope handle_scope(isolate());
-  auto error_object = v8::Exception::Error(mate::StringToV8(isolate(), 
-    message));
-  mate::EmitEvent(isolate(), GetWrapper(), "error", error_object);
+  //  Sends are not allowed after an error.
+  //  Move to at least the CLOSING state.
+  //  The implementation automatically handles the close handshake.
+  if (state_ != State::CLOSED) {
+    state_ = State::CLOSING;
+    v8::HandleScope handle_scope(isolate());
+    auto error_object = v8::Exception::Error(mate::StringToV8(isolate(),
+      message));
+    mate::EmitEvent(isolate(), GetWrapper(), "error", error_object);
+  }
 }
-
 
 void WebSocket::Pin() {
   if (wrapper_.IsEmpty()) {
@@ -368,7 +393,6 @@ void WebSocket::Pin() {
 void WebSocket::Unpin() {
   wrapper_.Reset();
 }
-
 
 }  // namespace api
 
